@@ -22,6 +22,8 @@ class SourceFileManager extends ForwardingJavaFileManager<StandardJavaFileManage
         LOG.warning(error.getMessage(null));
     }
 
+    // TODO if .class files get moved around, this could become wrong
+    // class path includes generated .class files, so this can definitely happen
     private final LruCache<String, Iterable<JavaFileObject>> cacheClassPath = new LruCache<>(1000, this::listClassPath);
 
     @Override

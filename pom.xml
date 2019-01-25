@@ -7,6 +7,7 @@
     <artifactId>javac-services</artifactId>
     <packaging>jar</packaging>
     <version>0.1-SNAPSHOT</version>
+
     <distributionManagement>
         <repository>
             <id>distribution-repository</id>
@@ -14,6 +15,7 @@
             <url>file://${basedir}/dist</url>
         </repository>
     </distributionManagement>
+
     <dependencies>
         <!-- JSON support -->
         <dependency>
@@ -58,6 +60,22 @@
                 <configuration>
                     <source>11</source>
                     <target>11</target>
+                    <compilerArgs>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.api=javacs</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.code=javacs</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.comp=javacs</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.main=javacs</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.tree=javacs</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.model=javacs</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.util=javacs</arg>
+                    </compilerArgs>
                     <!-- Workaround of https://issues.apache.org/jira/browse/MCOMPILER-369 -->
                     <annotationProcessorPaths>
                         <path>
