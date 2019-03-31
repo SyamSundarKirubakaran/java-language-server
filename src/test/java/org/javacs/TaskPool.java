@@ -125,14 +125,13 @@ public class TaskPool {
      * @throws IllegalArgumentException if any of the options are invalid, or if any of the given compilation units are
      *     of other kind than {@linkplain JavaFileObject.Kind#SOURCE source}
      */
-    public <Z> Z getTask(
+    public Borrow getTask(
             Writer out,
             JavaFileManager fileManager,
             DiagnosticListener<? super JavaFileObject> diagnosticListener,
             Iterable<String> options,
             Iterable<String> classes,
-            Iterable<? extends JavaFileObject> compilationUnits,
-            Worker<Z> worker) {
+            Iterable<? extends JavaFileObject> compilationUnits) {
         List<String> opts =
                 StreamSupport.stream(options.spliterator(), false).collect(Collectors.toCollection(ArrayList::new));
 
@@ -159,35 +158,9 @@ public class TaskPool {
 
         task.addTaskListener(ctx);
 
-        Z result = worker.withTask(task);
-
-        // not returning the context to the pool if task crashes with an exception
-        // the task/context may be in a broken state
-        ctx.clear();
-        if (ctx.polluted) {
-            statPolluted++;
-        } else {
-            //            task.cleanup();
-            synchronized (this) {
-                while (cacheSize() + 1 > maxPoolSize) {
-                    ReusableContext toRemove =
-                            options2Contexts
-                                    .values()
-                                    .stream()
-                                    .flatMap(Collection::stream)
-                                    .sorted((c1, c2) -> c1.timeStamp < c2.timeStamp ? -1 : 1)
-                                    .findFirst()
-                                    .get();
-                    options2Contexts.get(toRemove.arguments).remove(toRemove);
-                    statRemoved++;
-                }
-                options2Contexts.computeIfAbsent(ctx.arguments, x -> new ArrayList<>()).add(ctx);
-                ctx.timeStamp = id++;
-            }
-        }
-
-        return result;
+        return new Borrow(task, ctx);
     }
+
     // where:
     private long cacheSize() {
         return options2Contexts.values().stream().flatMap(Collection::stream).count();
@@ -200,8 +173,42 @@ public class TaskPool {
         out.println(statRemoved + " removed Contexts");
     }
 
-    public interface Worker<Z> {
-        public Z withTask(JavacTask task);
+    public class Borrow implements AutoCloseable {
+        public final JavacTask task;
+        public final ReusableContext ctx;
+
+        public Borrow(JavacTask task, ReusableContext ctx) {
+            this.task = task;
+            this.ctx = ctx;
+        }
+
+        @Override
+        public void close() {
+            // not returning the context to the pool if task crashes with an exception
+            // the task/context may be in a broken state
+            ctx.clear();
+            if (ctx.polluted) {
+                statPolluted++;
+            } else {
+                //            task.cleanup();
+                synchronized (this) {
+                    while (cacheSize() + 1 > maxPoolSize) {
+                        ReusableContext toRemove =
+                                options2Contexts
+                                        .values()
+                                        .stream()
+                                        .flatMap(Collection::stream)
+                                        .sorted((c1, c2) -> c1.timeStamp < c2.timeStamp ? -1 : 1)
+                                        .findFirst()
+                                        .get();
+                        options2Contexts.get(toRemove.arguments).remove(toRemove);
+                        statRemoved++;
+                    }
+                    options2Contexts.computeIfAbsent(ctx.arguments, x -> new ArrayList<>()).add(ctx);
+                    ctx.timeStamp = id++;
+                }
+            }
+        }
     }
 
     static class ReusableContext extends Context implements TaskListener {
