@@ -18,14 +18,14 @@ import javax.lang.model.util.Types;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 
-public class CompileFocus {
+public class CompileFocus implements AutoCloseable {
     public static final int MAX_COMPLETION_ITEMS = 50;
 
     private final JavaCompilerService parent;
     private final URI file;
     private final String contents;
     private final int line, character;
-    private final JavacTask task;
+    private final TaskPool.Borrow borrow;
     private final Trees trees;
     private final Types types;
     private final CompilationUnitTree root;
@@ -37,35 +37,40 @@ public class CompileFocus {
         this.contents = Pruner.prune(file, line, character);
         this.line = line;
         this.character = character;
-        this.task = singleFileTask(parent, file, this.contents);
-        this.trees = Trees.instance(task);
-        this.types = task.getTypes();
+        this.borrow = singleFileTask(parent, file, this.contents);
+        this.trees = Trees.instance(borrow.task);
+        this.types = borrow.task.getTypes();
 
         var profiler = new Profiler();
-        task.addTaskListener(profiler);
+        borrow.task.addTaskListener(profiler);
         try {
-            this.root = task.parse().iterator().next();
+            this.root = borrow.task.parse().iterator().next();
             // The results of task.analyze() are unreliable when errors are present
             // You can get at `Element` values using `Trees`
-            task.analyze();
+            borrow.task.analyze();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         profiler.print();
-        this.path = findPath(task, root, line, character);
+        this.path = findPath(borrow.task, root, line, character);
     }
 
+    @Override
+    public void close() {
+        borrow.close();
+    }
+
+    // TODO this is highlighting incorrectly
     /** Create a task that compiles a single file */
-    static JavacTask singleFileTask(JavaCompilerService parent, URI file, String contents) {
+    static TaskPool.Borrow singleFileTask(JavaCompilerService parent, URI file, String contents) {
         parent.diags.clear();
-        return (JavacTask)
-                parent.compiler.getTask(
-                        null,
-                        parent.fileManager,
-                        parent.diags::add,
-                        JavaCompilerService.options(parent.classPath),
-                        Collections.emptyList(),
-                        List.of(new SourceFileObject(file, contents)));
+        return parent.compiler.getTask(
+                null,
+                parent.fileManager,
+                parent.diags::add,
+                JavaCompilerService.options(parent.classPath),
+                Collections.emptyList(),
+                List.of(new SourceFileObject(file, contents)));
     }
 
     /** Find the smallest element that includes the cursor */
@@ -203,8 +208,12 @@ public class CompileFocus {
 
         // Get members of switched type
         var type = trees.getTypeMirror(path);
+        if (type == null) {
+            LOG.info("...no type at " + leaf.getExpression());
+            return Collections.emptyList();
+        }
         LOG.info(String.format("...switched expression has type `%s`", type));
-        var types = task.getTypes();
+        var types = borrow.task.getTypes();
         var definition = types.asElement(type);
         if (definition == null) {
             LOG.info("...type has no definition, completing identifiers instead");
@@ -221,7 +230,7 @@ public class CompileFocus {
 
     /** Find all members of expression ending at line:character */
     public List<Completion> completeMembers(boolean isReference) {
-        var types = task.getTypes();
+        var types = borrow.task.getTypes();
         var scope = trees.getScope(path);
         var element = trees.getElement(path);
 
@@ -426,7 +435,7 @@ public class CompileFocus {
     }
 
     private void collectSuperMethods(TypeMirror thisType, List<ExecutableElement> result) {
-        var types = task.getTypes();
+        var types = borrow.task.getTypes();
 
         for (var superType : types.directSupertypes(thisType)) {
             if (superType instanceof DeclaredType) {
@@ -472,7 +481,7 @@ public class CompileFocus {
         collectSupers(t, types);
         // Object type is not included by default
         // We need to add it to get members like .equals(other) and .hashCode()
-        types.add(task.getElements().getTypeElement("java.lang.Object").asType());
+        types.add(borrow.task.getElements().getTypeElement("java.lang.Object").asType());
         return types;
     }
 
@@ -514,7 +523,7 @@ public class CompileFocus {
 
     /** Find all identifiers in scope at line:character */
     List<Element> scopeMembers(String partialName) {
-        var types = task.getTypes();
+        var types = borrow.task.getTypes();
         var start = trees.getScope(path);
 
         class Walk {

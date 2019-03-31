@@ -5,15 +5,29 @@ import com.sun.source.tree.*;
 import com.sun.source.util.*;
 import java.io.IOException;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.logging.Logger;
 import javax.lang.model.element.*;
+import javax.tools.JavaCompiler;
 import org.javacs.lsp.*;
 
 public class ParseFile {
+    private static final JavaCompiler COMPILER = ServiceLoader.load(JavaCompiler.class).iterator().next();
+
+    /** Create a task that compiles a single file */
+    static JavacTask singleFileTask(JavaCompilerService parent, URI file, String contents) {
+        // TODO could eliminate the connection to parent
+        parent.diags.clear();
+        return (JavacTask)
+                COMPILER.getTask(
+                        null,
+                        parent.fileManager,
+                        parent.diags::add,
+                        JavaCompilerService.options(parent.classPath),
+                        Collections.emptyList(),
+                        List.of(new SourceFileObject(file, contents)));
+    }
+
     private final String contents;
     private final JavacTask task;
     private final Trees trees;
@@ -24,7 +38,7 @@ public class ParseFile {
         Objects.requireNonNull(file);
 
         this.contents = FileStore.contents(file);
-        this.task = CompileFocus.singleFileTask(parent, file, contents);
+        this.task = singleFileTask(parent, file, contents);
         this.trees = Trees.instance(task);
         var profiler = new Profiler();
         task.addTaskListener(profiler);

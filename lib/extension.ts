@@ -219,7 +219,7 @@ function platformSpecificLauncher(): string[] {
 		case 'win32':
             return ['dist', 'windows', 'bin', 'launcher'];
 
-		case 'darwin':
+        case 'darwin':
             return ['dist', 'mac', 'bin', 'launcher'];
 	}
 
@@ -245,7 +245,14 @@ function visualVmConfig(context: ExtensionContext): ServerOptions {
         '-Xverify:none', // helps VisualVM avoid 'error 62'
         '-Xdebug',
         // '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005',
-        'org.javacs.Main'
+        'org.javacs.Main',
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=javacs",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=javacs",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.comp=javacs",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.main=javacs",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=javacs",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.model=javacs",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=javacs",
     ];
     
     console.log(javaExecutablePath + ' ' + args.join(' '));

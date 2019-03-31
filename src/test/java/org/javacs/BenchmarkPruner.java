@@ -51,12 +51,12 @@ public class BenchmarkPruner {
 
     @Benchmark
     public void pruned(CompilerState state) {
-        state.compiler.compileBatch(List.of(state.pruned));
+        state.compiler.compileBatch(List.of(state.pruned)).close();
     }
 
     @Benchmark
     public void plain(CompilerState state) {
-        state.compiler.compileBatch(List.of(state.file));
+        state.compiler.compileBatch(List.of(state.file)).close();
     }
 
     private static final Logger LOG = Logger.getLogger("main");

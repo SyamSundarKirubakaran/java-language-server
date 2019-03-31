@@ -16,7 +16,7 @@ import javax.tools.*;
 public class JavaCompilerService {
     // Not modifiable! If you want to edit these, you need to create a new instance
     final Set<Path> classPath, docPath;
-    final JavaCompiler compiler = ServiceLoader.load(JavaCompiler.class).iterator().next();
+    final TaskPool compiler = new TaskPool(10);
     final Docs docs;
     final Set<String> jdkClasses = Classes.jdkTopLevelClasses(), classPathClasses;
     // Diagnostics from the last compilation task
@@ -40,7 +40,6 @@ public class JavaCompilerService {
         this.docs = new Docs(docPath);
         this.classPathClasses = Classes.classPathTopLevelClasses(classPath);
         this.fileManager = new SourceFileManager();
-        ;
     }
 
     /** Combine source path or class path entries using the system separator, for example ':' in unix */
@@ -121,46 +120,46 @@ public class JavaCompilerService {
 
         // Create task
         var options = options(classPath);
-        var task =
-                (JavacTask) compiler.getTask(null, fileManager, diags::add, options, Collections.emptyList(), sources);
-        var trees = Trees.instance(task);
+        try (var borrow = compiler.getTask(null, fileManager, diags::add, options, Collections.emptyList(), sources)) {
+            var trees = Trees.instance(borrow.task);
 
-        // Print timing information for optimization
-        var profiler = new Profiler();
-        task.addTaskListener(profiler);
+            // Print timing information for optimization
+            var profiler = new Profiler();
+            borrow.task.addTaskListener(profiler);
 
-        // Run compilation
-        diags.clear();
-        Iterable<? extends CompilationUnitTree> roots;
-        try {
-            roots = task.parse();
-            task.analyze();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        profiler.print();
-        LOG.info(String.format("...found %d errors", diags.size()));
-
-        // Check for unused privates
-        for (var r : roots) {
-            var warnUnused = new WarnUnused(task);
-            warnUnused.scan(r, null);
-            for (var unusedEl : warnUnused.notUsed()) {
-                var path = trees.getPath(unusedEl);
-                var message = String.format("`%s` is not used", unusedEl.getSimpleName());
-                Diagnostic.Kind kind;
-                if (unusedEl instanceof ExecutableElement || unusedEl instanceof TypeElement) {
-                    kind = Diagnostic.Kind.OTHER;
-                } else {
-                    kind = Diagnostic.Kind.WARNING;
-                }
-                diags.add(new Warning(task, path, kind, "unused", message));
+            // Run compilation
+            diags.clear();
+            Iterable<? extends CompilationUnitTree> roots;
+            try {
+                roots = borrow.task.parse();
+                borrow.task.analyze();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-        }
-        // TODO hint fields that could be final
-        // TODO hint unused exception
+            profiler.print();
+            LOG.info(String.format("...found %d errors", diags.size()));
 
-        return Collections.unmodifiableList(new ArrayList<>(diags));
+            // Check for unused privates
+            for (var r : roots) {
+                var warnUnused = new WarnUnused(borrow.task);
+                warnUnused.scan(r, null);
+                for (var unusedEl : warnUnused.notUsed()) {
+                    var path = trees.getPath(unusedEl);
+                    var message = String.format("`%s` is not used", unusedEl.getSimpleName());
+                    Diagnostic.Kind kind;
+                    if (unusedEl instanceof ExecutableElement || unusedEl instanceof TypeElement) {
+                        kind = Diagnostic.Kind.OTHER;
+                    } else {
+                        kind = Diagnostic.Kind.WARNING;
+                    }
+                    diags.add(new Warning(borrow.task, path, kind, "unused", message));
+                }
+            }
+            // TODO hint fields that could be final
+            // TODO hint unused exception
+
+            return Collections.unmodifiableList(new ArrayList<>(diags));
+        }
     }
 
     public Set<URI> potentialDefinitions(Element to) {

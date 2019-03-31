@@ -12,10 +12,10 @@ import javax.lang.model.util.*;
 import javax.tools.*;
 import org.javacs.lsp.Range;
 
-public class CompileBatch {
+public class CompileBatch implements AutoCloseable {
     private final JavaCompilerService parent;
     private final ReportProgress progress;
-    private final JavacTask task;
+    private final TaskPool.Borrow borrow;
     private final Trees trees;
     private final Elements elements;
     private final Types types;
@@ -24,14 +24,14 @@ public class CompileBatch {
     CompileBatch(JavaCompilerService parent, Collection<? extends JavaFileObject> files, ReportProgress progress) {
         this.parent = parent;
         this.progress = progress;
-        this.task = batchTask(parent, files);
-        this.trees = Trees.instance(task);
-        this.elements = task.getElements();
-        this.types = task.getTypes();
+        this.borrow = batchTask(parent, files);
+        this.trees = Trees.instance(borrow.task);
+        this.elements = borrow.task.getElements();
+        this.types = borrow.task.getTypes();
         this.roots = new ArrayList<CompilationUnitTree>();
         // Print timing information for optimization
         var profiler = new Profiler();
-        task.addTaskListener(profiler);
+        borrow.task.addTaskListener(profiler);
         // Show progress message through the UI
         class CountFiles implements TaskListener {
             Set<URI> parse = new HashSet<>(), enter = new HashSet<>(), analyze = new HashSet<>();
@@ -59,35 +59,39 @@ public class CompileBatch {
                 }
             }
         }
-        task.addTaskListener(new CountFiles());
+        borrow.task.addTaskListener(new CountFiles());
         // Compile all roots
         try {
-            for (var t : task.parse()) roots.add(t);
-            // The results of task.analyze() are unreliable when errors are present
+            for (var t : borrow.task.parse()) roots.add(t);
+            // The results of borrow.task.analyze() are unreliable when errors are present
             // You can get at `Element` values using `Trees`
-            task.analyze();
+            borrow.task.analyze();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         profiler.print();
     }
 
-    static JavacTask batchTask(JavaCompilerService parent, Collection<? extends JavaFileObject> sources) {
+    @Override
+    public void close() {
+        borrow.close();
+    }
+
+    static TaskPool.Borrow batchTask(JavaCompilerService parent, Collection<? extends JavaFileObject> sources) {
         parent.diags.clear();
-        return (JavacTask)
-                parent.compiler.getTask(
-                        null,
-                        parent.fileManager,
-                        parent.diags::add,
-                        JavaCompilerService.options(parent.classPath),
-                        Collections.emptyList(),
-                        sources);
+        return parent.compiler.getTask(
+                null,
+                parent.fileManager,
+                parent.diags::add,
+                JavaCompilerService.options(parent.classPath),
+                Collections.emptyList(),
+                sources);
     }
 
     public Optional<Element> element(URI uri, int line, int character) {
         for (var root : roots) {
             if (root.getSourceFile().toUri().equals(uri)) {
-                var path = CompileFocus.findPath(task, root, line, character);
+                var path = CompileFocus.findPath(borrow.task, root, line, character);
                 var el = trees.getElement(path);
                 return Optional.ofNullable(el);
             }
@@ -171,7 +175,7 @@ public class CompileBatch {
         // Otherwise, scan roots for references
         List<TreePath> list = new ArrayList<TreePath>();
         var map = Map.of(to, list);
-        var finder = new FindReferences(task);
+        var finder = new FindReferences(borrow.task);
         for (var r : roots) {
             finder.scan(r, map);
         }
@@ -207,7 +211,7 @@ public class CompileBatch {
     public Index index(URI from, List<Element> declarations) {
         for (var r : roots) {
             if (r.getSourceFile().toUri().equals(from)) {
-                return new Index(task, r, parent.diags, declarations);
+                return new Index(borrow.task, r, parent.diags, declarations);
             }
         }
         throw new RuntimeException(from + " is not in compiled batch");
@@ -216,7 +220,7 @@ public class CompileBatch {
     public Optional<Range> range(TreePath path) {
         var uri = path.getCompilationUnit().getSourceFile().toUri();
         var contents = FileStore.contents(uri);
-        return ParseFile.range(task, contents, path);
+        return ParseFile.range(borrow.task, contents, path);
     }
 
     private static final Logger LOG = Logger.getLogger("main");

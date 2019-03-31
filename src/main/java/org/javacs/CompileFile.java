@@ -10,11 +10,11 @@ import java.util.logging.Logger;
 import javax.lang.model.element.*;
 import org.javacs.lsp.*;
 
-public class CompileFile {
+public class CompileFile implements AutoCloseable {
     private final JavaCompilerService parent;
     public final URI file;
     public final String contents;
-    private final JavacTask task;
+    private final TaskPool.Borrow borrow;
     private final Trees trees;
     public final CompilationUnitTree root;
 
@@ -22,19 +22,24 @@ public class CompileFile {
         this.parent = parent;
         this.file = file;
         this.contents = FileStore.contents(file);
-        this.task = CompileFocus.singleFileTask(parent, file, contents);
-        this.trees = Trees.instance(task);
+        this.borrow = CompileFocus.singleFileTask(parent, file, contents);
+        this.trees = Trees.instance(borrow.task);
         var profiler = new Profiler();
-        task.addTaskListener(profiler);
+        borrow.task.addTaskListener(profiler);
         try {
-            this.root = task.parse().iterator().next();
-            // The results of task.analyze() are unreliable when errors are present
+            this.root = borrow.task.parse().iterator().next();
+            // The results of borrow.task.analyze() are unreliable when errors are present
             // You can get at `Element` values using `Trees`
-            task.analyze();
+            borrow.task.analyze();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         profiler.print();
+    }
+
+    @Override
+    public void close() {
+        borrow.close();
     }
 
     public SourcePositions sourcePositions() {
@@ -57,14 +62,14 @@ public class CompileFile {
     }
 
     public Index index(List<Element> declarations) {
-        return new Index(task, root, parent.diags, declarations);
+        return new Index(borrow.task, root, parent.diags, declarations);
     }
 
     public Optional<Element> element(int line, int character) {
         // LOG.info(String.format("Looking for element at %s(%d,%d)...", file.getPath(), line, character));
 
         // First, look for a tree path
-        var path = CompileFocus.findPath(task, root, line, character);
+        var path = CompileFocus.findPath(borrow.task, root, line, character);
         if (path == null) {
             // LOG.info("...found nothing");
             return Optional.empty();
@@ -132,12 +137,12 @@ public class CompileFile {
     }
 
     public Optional<Range> range(TreePath path) {
-        return ParseFile.range(task, contents, path);
+        return ParseFile.range(borrow.task, contents, path);
     }
 
     private List<Element> overrides(ExecutableElement method) {
-        var elements = task.getElements();
-        var types = task.getTypes();
+        var elements = borrow.task.getElements();
+        var types = borrow.task.getTypes();
         var results = new ArrayList<Element>();
         var enclosingClass = (TypeElement) method.getEnclosingElement();
         var enclosingType = enclosingClass.asType();
@@ -219,7 +224,7 @@ public class CompileFile {
         classes.addAll(parent.classPathClasses);
         var fixes = Parser.resolveSymbols(unresolved, sourcePathImports, classes);
         // Figure out which existing imports are actually used
-        var trees = Trees.instance(task);
+        var trees = Trees.instance(borrow.task);
         var references = new HashSet<String>();
         class FindUsedImports extends TreePathScanner<Void, Void> {
             @Override

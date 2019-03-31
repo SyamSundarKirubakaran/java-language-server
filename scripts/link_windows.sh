@@ -36,3 +36,14 @@ $REAL_JAVA_HOME/bin/jlink \
   --launcher launcher=javacs/org.javacs.Main \
   --output dist/windows \
   --compress 2 
+
+# Restore launcher
+echo '#!/bin/sh
+JLINK_VM_OPTIONS="--add-exports jdk.compiler/com.sun.tools.javac.api=javacs --add-exports jdk.compiler/com.sun.tools.javac.code=javacs --add-exports jdk.compiler/com.sun.tools.javac.comp=javacs --add-exports jdk.compiler/com.sun.tools.javac.main=javacs --add-exports jdk.compiler/com.sun.tools.javac.tree=javacs --add-exports jdk.compiler/com.sun.tools.javac.model=javacs --add-exports jdk.compiler/com.sun.tools.javac.util=javacs"
+DIR=`dirname $0`
+$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.Main $@' > dist/windows/bin/launcher
+
+echo '@echo off
+set JLINK_VM_OPTIONS="--add-exports jdk.compiler/com.sun.tools.javac.api=javacs --add-exports jdk.compiler/com.sun.tools.javac.code=javacs --add-exports jdk.compiler/com.sun.tools.javac.comp=javacs --add-exports jdk.compiler/com.sun.tools.javac.main=javacs --add-exports jdk.compiler/com.sun.tools.javac.tree=javacs --add-exports jdk.compiler/com.sun.tools.javac.model=javacs --add-exports jdk.compiler/com.sun.tools.javac.util=javacs"
+set DIR=%~dp0
+"%DIR%\java" %JLINK_VM_OPTIONS% -m javacs/org.javacs.Main %*' > dist/windows/bin/launcher.bat

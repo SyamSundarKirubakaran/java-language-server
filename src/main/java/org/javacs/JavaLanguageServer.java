@@ -351,35 +351,34 @@ class JavaLanguageServer extends LanguageServer {
         }
         // Compile again, focusing on a region that depends on what type of completion we want to do
         var ctx = maybeCtx.get();
-        // TODO CompileFocus should have a "patch" mechanism where we recompile the current file without creating a new
-        // task
-        var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        // Do a specific type of completion
         List<Completion> cs;
         boolean isIncomplete;
-        switch (ctx.kind) {
-            case MemberSelect:
-                cs = focus.completeMembers(false);
-                isIncomplete = false;
-                break;
-            case MemberReference:
-                cs = focus.completeMembers(true);
-                isIncomplete = false;
-                break;
-            case Identifier:
-                cs = focus.completeIdentifiers(ctx.inClass, ctx.inMethod, ctx.partialName);
-                isIncomplete = cs.size() >= CompileFocus.MAX_COMPLETION_ITEMS;
-                break;
-            case Annotation:
-                cs = focus.completeAnnotations(ctx.partialName);
-                isIncomplete = cs.size() >= CompileFocus.MAX_COMPLETION_ITEMS;
-                break;
-            case Case:
-                cs = focus.completeCases();
-                isIncomplete = false;
-                break;
-            default:
-                throw new RuntimeException("Unexpected completion context " + ctx.kind);
+        try (var focus = compiler.compileFocus(uri, ctx.line, ctx.character)) {
+            // Do a specific type of completion
+            switch (ctx.kind) {
+                case MemberSelect:
+                    cs = focus.completeMembers(false);
+                    isIncomplete = false;
+                    break;
+                case MemberReference:
+                    cs = focus.completeMembers(true);
+                    isIncomplete = false;
+                    break;
+                case Identifier:
+                    cs = focus.completeIdentifiers(ctx.inClass, ctx.inMethod, ctx.partialName);
+                    isIncomplete = cs.size() >= CompileFocus.MAX_COMPLETION_ITEMS;
+                    break;
+                case Annotation:
+                    cs = focus.completeAnnotations(ctx.partialName);
+                    isIncomplete = cs.size() >= CompileFocus.MAX_COMPLETION_ITEMS;
+                    break;
+                case Case:
+                    cs = focus.completeCases();
+                    isIncomplete = false;
+                    break;
+                default:
+                    throw new RuntimeException("Unexpected completion context " + ctx.kind);
+            }
         }
         // Convert to CompletionItem
         var result = new ArrayList<CompletionItem>();
@@ -624,6 +623,7 @@ class JavaLanguageServer extends LanguageServer {
                 || !activeFileCache.file.equals(uri)
                 || activeFileCacheVersion != FileStore.version(uri)) {
             LOG.info("Recompile active file...");
+            if (activeFileCache != null) activeFileCache.close();
             activeFileCache = compiler.compileFile(uri);
             activeFileCacheVersion = FileStore.version(uri);
         }
@@ -744,11 +744,10 @@ class JavaLanguageServer extends LanguageServer {
         if (!FileStore.isJavaFile(uri)) return Optional.empty();
         var line = position.position.line + 1;
         var column = position.position.character + 1;
-        // TODO CompileFocus should have a "patch" mechanism where we recompile the current file without creating a new
-        // task
-        var focus = compiler.compileFocus(uri, line, column);
-        var help = focus.methodInvocation().map(this::asSignatureHelp);
-        return help;
+        try (var focus = compiler.compileFocus(uri, line, column)) {
+            var help = focus.methodInvocation().map(this::asSignatureHelp);
+            return help;
+        }
     }
 
     @Override
@@ -770,26 +769,26 @@ class JavaLanguageServer extends LanguageServer {
         // Compile all files that *might* contain definitions of fromEl
         var toFiles = compiler.potentialDefinitions(toEl.get());
         toFiles.add(fromUri);
-        var batch = compiler.compileBatch(pruneWord(toFiles, toEl.get()));
+        try (var batch = compiler.compileBatch(pruneWord(toFiles, toEl.get()))) {
+            // Find fromEl again, so that we have an Element from the current batch
+            var fromElAgain = batch.element(fromUri, fromLine, fromColumn).get();
 
-        // Find fromEl again, so that we have an Element from the current batch
-        var fromElAgain = batch.element(fromUri, fromLine, fromColumn).get();
-
-        // Find all definitions of fromElAgain
-        var toTreePaths = batch.definitions(fromElAgain);
-        if (!toTreePaths.isPresent()) return Optional.empty();
-        var result = new ArrayList<Location>();
-        for (var path : toTreePaths.get()) {
-            var toUri = path.getCompilationUnit().getSourceFile().toUri();
-            var toRange = batch.range(path);
-            if (!toRange.isPresent()) {
-                LOG.warning(String.format("Couldn't locate `%s`", path.getLeaf()));
-                continue;
+            // Find all definitions of fromElAgain
+            var toTreePaths = batch.definitions(fromElAgain);
+            if (!toTreePaths.isPresent()) return Optional.empty();
+            var result = new ArrayList<Location>();
+            for (var path : toTreePaths.get()) {
+                var toUri = path.getCompilationUnit().getSourceFile().toUri();
+                var toRange = batch.range(path);
+                if (!toRange.isPresent()) {
+                    LOG.warning(String.format("Couldn't locate `%s`", path.getLeaf()));
+                    continue;
+                }
+                var from = new Location(toUri, toRange.get());
+                result.add(from);
             }
-            var from = new Location(toUri, toRange.get());
-            result.add(from);
+            return Optional.of(result);
         }
-        return Optional.of(result);
     }
 
     @Override
@@ -811,26 +810,26 @@ class JavaLanguageServer extends LanguageServer {
         // Compile all files that *might* contain references to toEl
         var fromUris = compiler.potentialReferences(toEl.get());
         fromUris.add(toUri);
-        var batch = compiler.compileBatch(pruneWord(fromUris, toEl.get()));
+        try (var batch = compiler.compileBatch(pruneWord(fromUris, toEl.get()))) {
+            // Find toEl again, so that we have an Element from the current batch
+            var toElAgain = batch.element(toUri, toLine, toColumn).get();
 
-        // Find toEl again, so that we have an Element from the current batch
-        var toElAgain = batch.element(toUri, toLine, toColumn).get();
-
-        // Find all references to toElAgain
-        var fromTreePaths = batch.references(toElAgain);
-        if (!fromTreePaths.isPresent()) return Optional.empty();
-        var result = new ArrayList<Location>();
-        for (var path : fromTreePaths.get()) {
-            var fromUri = path.getCompilationUnit().getSourceFile().toUri();
-            var fromRange = batch.range(path);
-            if (!fromRange.isPresent()) {
-                LOG.warning(String.format("Couldn't locate `%s`", path.getLeaf()));
-                continue;
+            // Find all references to toElAgain
+            var fromTreePaths = batch.references(toElAgain);
+            if (!fromTreePaths.isPresent()) return Optional.empty();
+            var result = new ArrayList<Location>();
+            for (var path : fromTreePaths.get()) {
+                var fromUri = path.getCompilationUnit().getSourceFile().toUri();
+                var fromRange = batch.range(path);
+                if (!fromRange.isPresent()) {
+                    LOG.warning(String.format("Couldn't locate `%s`", path.getLeaf()));
+                    continue;
+                }
+                var from = new Location(fromUri, fromRange.get());
+                result.add(from);
             }
-            var from = new Location(fromUri, fromRange.get());
-            result.add(from);
+            return Optional.of(result);
         }
-        return Optional.of(result);
     }
 
     private List<JavaFileObject> pruneWord(Collection<URI> files, Element el) {
@@ -1138,18 +1137,18 @@ class JavaLanguageServer extends LanguageServer {
         if (!outOfDate.isEmpty()) {
             // Compile all files that need to be updated in a batch
             outOfDate.add(toUri);
-            var batch = compiler.compileBatch(outOfDate);
+            try (var batch = compiler.compileBatch(outOfDate)) {
+                // Find all declarations in toFile
+                var toEls = batch.declarations(toUri);
 
-            // Find all declarations in toFile
-            var toEls = batch.declarations(toUri);
-
-            // Index outOfDate
-            LOG.info(
-                    String.format(
-                            "...search for references to %d elements in %d files", toEls.size(), outOfDate.size()));
-            for (var fromUri : outOfDate) {
-                var index = batch.index(fromUri, toEls);
-                cacheIndex.put(fromUri, index);
+                // Index outOfDate
+                LOG.info(
+                        String.format(
+                                "...search for references to %d elements in %d files", toEls.size(), outOfDate.size()));
+                for (var fromUri : outOfDate) {
+                    var index = batch.index(fromUri, toEls);
+                    cacheIndex.put(fromUri, index);
+                }
             }
         } else {
             LOG.info("...all indexes are cached and up-to-date");
