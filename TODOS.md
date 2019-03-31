@@ -10,3 +10,4 @@
 
 ## Bugs 
 - Imports MyEnum.* unnecessarily
+- --add-exports arguments don't get inferred
