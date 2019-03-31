@@ -815,7 +815,7 @@
 		"keywords":  {
 			"patterns": [
 				{
-					"match": "\\b(try|finally|throw|return|break|continue|do|for|while|switch|case|if|else|goto)\\b",
+					"match": "\\b(try|finally|throw|return|break|continue|do|for|while|switch|case|if|else|goto|synchronized)\\b",
 					"name": "keyword.control"
 				},
 				{
