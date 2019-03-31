@@ -102,12 +102,16 @@ public class LSP {
         }
     }
 
+    static String toJson(Object message) {
+        return gson.toJson(message);
+    }
+
     static void respond(OutputStream client, int requestId, Object params) {
         if (params instanceof Optional) {
             var option = (Optional) params;
             params = option.orElse(null);
         }
-        var jsonText = gson.toJson(params);
+        var jsonText = toJson(params);
         var messageText = String.format("{\"jsonrpc\":\"2.0\",\"id\":%d,\"result\":%s}", requestId, jsonText);
         writeClient(client, messageText);
     }
@@ -117,7 +121,7 @@ public class LSP {
             var option = (Optional) params;
             params = option.orElse(null);
         }
-        var jsonText = gson.toJson(params);
+        var jsonText = toJson(params);
         var messageText = String.format("{\"jsonrpc\":\"2.0\",\"method\":\"%s\",\"params\":%s}", method, jsonText);
         writeClient(client, messageText);
     }

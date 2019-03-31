@@ -77,4 +77,12 @@ public class LspTest {
         assertThat(parse.method, equalTo("initialize"));
         assertThat(parse.params, equalTo(new JsonObject()));
     }
+
+    @Test
+    public void excludeDefaults() {
+        var item = new CompletionItem();
+        var text = LSP.toJson(item);
+
+        assertThat(text, equalTo("{\"kind\":0}"));
+    }
 }

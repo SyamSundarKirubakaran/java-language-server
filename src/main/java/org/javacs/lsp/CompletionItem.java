@@ -8,9 +8,9 @@ public class CompletionItem {
     public int kind;
     public String detail;
     public MarkupContent documentation;
-    public boolean deprecated, preselect;
+    public Boolean deprecated, preselect;
     public String sortText, filterText, insertText;
-    public int insertTextFormat;
+    public Integer insertTextFormat;
     public TextEdit textEdit;
     public List<TextEdit> additionalTextEdits;
     public List<Character> commitCharacters;
