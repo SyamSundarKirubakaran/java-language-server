@@ -5,10 +5,8 @@ import com.sun.source.util.*;
 import java.io.IOException;
 import java.net.URI;
 import java.util.*;
-import java.util.function.Predicate;
 import java.util.logging.Logger;
 import javax.lang.model.element.*;
-import org.javacs.lsp.*;
 
 public class CompileFile implements AutoCloseable {
     private final JavaCompilerService parent;
@@ -84,60 +82,6 @@ public class CompileFile implements AutoCloseable {
         }
 
         return Optional.of(el);
-    }
-
-    public Optional<TreePath> path(Element e) {
-        return Optional.ofNullable(trees.getPath(e));
-    }
-
-    public Optional<TreePath> find(Ptr target) {
-        class FindPtr extends TreePathScanner<Void, Void> {
-            TreePath found = null;
-
-            boolean toStringEquals(Object left, Object right) {
-                return Objects.equals(Objects.toString(left, ""), Objects.toString(right, ""));
-            }
-
-            /** Check if the declaration at the current path is the same symbol as `e` */
-            boolean sameSymbol() {
-                var path = getCurrentPath();
-                var el = trees.getElement(path);
-                return new Ptr(el).equals(target);
-            }
-
-            void check() {
-                if (sameSymbol()) {
-                    found = getCurrentPath();
-                }
-            }
-
-            @Override
-            public Void visitClass(ClassTree node, Void aVoid) {
-                check();
-                return super.visitClass(node, aVoid);
-            }
-
-            @Override
-            public Void visitMethod(MethodTree node, Void aVoid) {
-                check();
-                // Ptr can't point inside a method
-                return null;
-            }
-
-            @Override
-            public Void visitVariable(VariableTree node, Void aVoid) {
-                check();
-                // Ptr can't point inside a method
-                return null;
-            }
-        }
-        var find = new FindPtr();
-        find.scan(root, null);
-        return Optional.ofNullable(find.found);
-    }
-
-    public Optional<Range> range(TreePath path) {
-        return ParseFile.range(borrow.task, contents, path);
     }
 
     private List<Element> overrides(ExecutableElement method) {
@@ -268,42 +212,6 @@ public class CompileFile implements AutoCloseable {
         sorted.addAll(qualifiedNames);
         Collections.sort(sorted);
         return sorted;
-    }
-
-    public List<String> allClassNames() {
-        var result = new ArrayList<String>();
-        class FindClasses extends TreeScanner<Void, Void> {
-            @Override
-            public Void visitClass(ClassTree classTree, Void __) {
-                var className = Objects.toString(classTree.getSimpleName(), "");
-                result.add(className);
-                return null;
-            }
-        }
-        root.accept(new FindClasses(), null);
-        return result;
-    }
-
-    public Predicate<List<Ptr>> signatureMatches() {
-        // Precompute qualified names of all classes in this file
-        var thisClasses = new ArrayList<String>();
-        for (var c : root.getTypeDecls()) {
-            var path = trees.getPath(root, c);
-            var el = (TypeElement) trees.getElement(path);
-            var name = el.getQualifiedName().toString();
-            thisClasses.add(name);
-        }
-        return i -> {
-            // For each pointer, check if it refers to something in this file that no longer exists
-            for (var ptr : i) {
-                if (thisClasses.contains(ptr.qualifiedClassName()) && !find(ptr).isPresent()) {
-                    LOG.info(
-                            String.format("`%s` refers to signature that no longer exists in %s", ptr, file.getPath()));
-                    return false;
-                }
-            }
-            return true;
-        };
     }
 
     private static final Logger LOG = Logger.getLogger("main");

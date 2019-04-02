@@ -73,20 +73,6 @@ public class CodeLensTest {
     }
 
     @Test
-    public void signatureMatches() {
-        var file = "/org/javacs/example/ConstructorRefs.java";
-        var uri = FindResource.uri(file);
-        var compile = server.compiler.compileFile(uri);
-        var signatureMatches = compile.signatureMatches();
-
-        var good = List.of(new Ptr("org.javacs.example/ConstructorRefs#<init>(int)"));
-        assertTrue(signatureMatches.test(good));
-
-        var bad = List.of(new Ptr("org.javacs.example/ConstructorRefs#<init>(int,int)"));
-        assertFalse(signatureMatches.test(bad));
-    }
-
-    @Test
     public void placement() {
         var lenses = lenses("/org/javacs/example/CodeLensPlacement.java");
         var titles = titles(lenses);
