@@ -49,14 +49,9 @@ public class InferBazelConfigTest {
     }
 
     @Test
-    public void bazelWorkspaceClassPath() {
-        assertThat(bazel.workspaceClassPath(), hasItem(bazelBinTarget.resolve("module/_javac/main/libmain_classes")));
-    }
-
-    @Test
-    public void bazelBuildClassPath() {
+    public void bazelClassPath() {
         assertThat(
-                bazel.buildClassPath(),
+                bazel.classPath(),
                 hasItem(
                         bazelGenfilesTarget.resolve(
                                 "external/com_external_external_library/jar/_ijar/jar/external/com_external_external_library/jar/external-library-1.2.jar")));

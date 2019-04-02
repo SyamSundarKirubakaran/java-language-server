@@ -5,7 +5,6 @@ import static org.junit.Assert.*;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.Set;
 import org.junit.Test;
 
@@ -16,18 +15,12 @@ public class InferConfigTest {
     private Set<String> externalDependencies = Set.of("com.external:external-library:1.2");
     private InferConfig both = new InferConfig(workspaceRoot, externalDependencies, mavenHome, gradleHome);
     private InferConfig gradle = new InferConfig(workspaceRoot, externalDependencies, Paths.get("nowhere"), gradleHome);
-    private InferConfig onlyPomXml =
-            new InferConfig(
-                    Paths.get("src/test/test-project/only-pom-xml"),
-                    Collections.emptySet(),
-                    mavenHome,
-                    Paths.get("nowhere"));
     private InferConfig thisProject = new InferConfig(Paths.get("."), Set.of());
 
     @Test
     public void mavenClassPath() {
         assertThat(
-                both.buildClassPath(),
+                both.classPath(),
                 contains(mavenHome.resolve("repository/com/external/external-library/1.2/external-library-1.2.jar")));
         // v1.1 should be ignored
     }
@@ -35,7 +28,7 @@ public class InferConfigTest {
     @Test
     public void gradleClasspath() {
         assertThat(
-                gradle.buildClassPath(),
+                gradle.classPath(),
                 contains(
                         gradleHome.resolve(
                                 "caches/modules-2/files-2.1/com.external/external-library/1.2/xxx/external-library-1.2.jar")));
@@ -70,7 +63,7 @@ public class InferConfigTest {
     @Test
     public void thisProjectClassPath() {
         assertThat(
-                thisProject.buildClassPath(),
+                thisProject.classPath(),
                 hasItem(hasToString(endsWith(".m2/repository/junit/junit/4.12/junit-4.12.jar"))));
     }
 
