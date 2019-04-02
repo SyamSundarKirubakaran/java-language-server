@@ -268,7 +268,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void fixImports() {
         var uri = resourceUri("MissingImport.java");
-        var qualifiedNames = compiler.compileFile(uri).fixImports();
+        var qualifiedNames = compiler.compileBatch(Collections.singleton(uri)).fixImports(uri);
         assertThat(qualifiedNames, hasItem("java.util.List"));
     }
 

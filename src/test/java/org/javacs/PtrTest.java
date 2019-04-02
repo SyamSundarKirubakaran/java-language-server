@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.net.URI;
+import java.util.Collections;
 import org.junit.Test;
 
 public class PtrTest {
@@ -11,11 +12,11 @@ public class PtrTest {
     static JavaLanguageServer server = LanguageServerFixture.getJavaLanguageServer();
     static String file = "/org/javacs/example/Ptrs.java";
     static URI uri = FindResource.uri(file);
-    static CompileFile compile = server.compiler.compileFile(uri);
+    static CompileBatch compile = server.compiler.compileBatch(Collections.singleton(uri));
 
     @Test
     public void classPtr() {
-        var el = compile.element(3, 15).get();
+        var el = compile.element(uri, 3, 15).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs"));
 
@@ -25,7 +26,7 @@ public class PtrTest {
 
     @Test
     public void fieldPtr() {
-        var el = compile.element(4, 20).get();
+        var el = compile.element(uri, 4, 20).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs#field"));
 
@@ -35,7 +36,7 @@ public class PtrTest {
 
     @Test
     public void emptyMethodPtr() {
-        var el = compile.element(6, 20).get();
+        var el = compile.element(uri, 6, 20).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs#method()"));
 
@@ -45,7 +46,7 @@ public class PtrTest {
 
     @Test
     public void intMethodPtr() {
-        var el = compile.element(8, 20).get();
+        var el = compile.element(uri, 8, 20).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs#method(int)"));
 
@@ -55,7 +56,7 @@ public class PtrTest {
 
     @Test
     public void stringMethodPtr() {
-        var el = compile.element(10, 20).get();
+        var el = compile.element(uri, 10, 20).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs#method(java.lang.String)"));
 
@@ -65,7 +66,7 @@ public class PtrTest {
 
     @Test
     public void constructorPtr() {
-        var el = compile.element(12, 13).get();
+        var el = compile.element(uri, 12, 13).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs#<init>(int)"));
 
@@ -75,7 +76,7 @@ public class PtrTest {
 
     @Test
     public void innerClassPtr() {
-        var el = compile.element(14, 20).get();
+        var el = compile.element(uri, 14, 20).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs.InnerClass"));
 
@@ -85,7 +86,7 @@ public class PtrTest {
 
     @Test
     public void innerFieldPtr() {
-        var el = compile.element(15, 20).get();
+        var el = compile.element(uri, 15, 20).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs.InnerClass#innerField"));
 
@@ -95,7 +96,7 @@ public class PtrTest {
 
     @Test
     public void innerEmptyMethodPtr() {
-        var el = compile.element(17, 25).get();
+        var el = compile.element(uri, 17, 25).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs.InnerClass#innerMethod()"));
 
@@ -105,7 +106,7 @@ public class PtrTest {
 
     @Test
     public void innerConstructorPtr() {
-        var el = compile.element(19, 21).get();
+        var el = compile.element(uri, 19, 21).get();
         var ptr = new Ptr(el);
         assertThat(ptr.toString(), equalTo("org.javacs.example/Ptrs.InnerClass#<init>()"));
 

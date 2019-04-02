@@ -83,10 +83,6 @@ public class JavaCompilerService {
         return new CompileFocus(this, file, line, character);
     }
 
-    public CompileFile compileFile(URI file) {
-        return new CompileFile(this, file);
-    }
-
     public CompileBatch compileBatch(Collection<URI> uris) {
         return compileBatch(uris, ReportProgress.EMPTY);
     }

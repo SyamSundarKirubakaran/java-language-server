@@ -15,3 +15,4 @@
 ## Bugs 
 - Imports MyEnum.* unnecessarily
 - --add-exports arguments don't get inferred
+- Deleting file doesn't clear it from javac
