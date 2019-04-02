@@ -14,15 +14,11 @@ public class Main {
         for (var h : root.getHandlers()) h.setFormatter(new LogFormat());
     }
 
-    private JavaLanguageServer createServer(LanguageClient client) {
-        return new JavaLanguageServer(client);
-    }
-
     public static void main(String[] args) {
         boolean quiet = Arrays.stream(args).anyMatch("--quiet"::equals);
 
         if (quiet) {
-          LOG.setLevel(Level.OFF);
+            LOG.setLevel(Level.OFF);
         }
 
         try {

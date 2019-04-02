@@ -1,7 +1,6 @@
 package org.javacs;
 
 import java.util.StringJoiner;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -9,8 +8,6 @@ import javax.lang.model.type.*;
 import javax.lang.model.util.AbstractTypeVisitor8;
 
 class ShortTypePrinter extends AbstractTypeVisitor8<String, Void> {
-    private static final Logger LOG = Logger.getLogger("main");
-
     private ShortTypePrinter() {}
 
     static String print(TypeMirror type) {
@@ -67,8 +64,7 @@ class ShortTypePrinter extends AbstractTypeVisitor8<String, Void> {
     @Override
     public String visitTypeVariable(TypeVariable t, Void aVoid) {
         String result = t.asElement().toString();
-        TypeMirror upper = t.getUpperBound();
-
+        // TypeMirror upper = t.getUpperBound();
         // NOTE this can create infinite recursion
         // if (!upper.toString().equals("java.lang.Object"))
         //     result += " extends " + print(upper);

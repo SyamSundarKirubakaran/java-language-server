@@ -18,7 +18,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Logger;
@@ -318,61 +317,6 @@ class FileStore {
 
     static boolean isJavaFile(URI uri) {
         return uri.getScheme().equals("file") && isJavaFile(Paths.get(uri));
-    }
-
-    private static Set<Path> allJavaFilesInDirs(Set<Path> dirs) {
-        var all = new HashSet<Path>();
-        for (var dir : dirs) {
-            try {
-                Files.walk(dir).filter(FileStore::isJavaFile).forEach(all::add);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return all;
-    }
-
-    private static Set<Path> sourcePath(Set<Path> workspaceRoots) {
-        LOG.info("Searching for source roots in " + workspaceRoots);
-
-        var certaintyThreshold = 10;
-        var sourceRoots = new HashMap<Path, Integer>();
-        fileLoop:
-        for (var file : allJavaFilesInDirs(workspaceRoots)) {
-            // First, check if we already have a high-confidence source root containing file
-            for (var root : sourceRoots.keySet()) {
-                var confidence = sourceRoots.get(root);
-                if (file.startsWith(root) && confidence > certaintyThreshold) {
-                    continue fileLoop;
-                }
-            }
-            // Otherwise, parse the file and look at its package declaration
-            var parse = Parser.parse(file);
-            var packageName = Objects.toString(parse.getPackageName(), "");
-            var packagePath = packageName.replace('.', File.separatorChar);
-            // If file has no package declaration, don't try to guess a source root
-            // This is probably a new file that the user will add a package declaration to later
-            if (packagePath.isEmpty()) {
-                LOG.warning("Ignoring file with missing package declaration " + file);
-                continue fileLoop;
-            }
-            // If path to file contradicts package declaration, give up
-            var dir = file.getParent();
-            if (!dir.endsWith(packagePath)) {
-                LOG.warning("Java source file " + file + " is not in " + packagePath);
-                continue fileLoop;
-            }
-            // Otherwise, use the package declaration to guess the source root
-            var up = Paths.get(packagePath).getNameCount();
-            var sourceRoot = dir;
-            for (int i = 0; i < up; i++) {
-                sourceRoot = sourceRoot.getParent();
-            }
-            // Increment our confidence in sourceRoot as a source root
-            var count = sourceRoots.getOrDefault(sourceRoot, 0);
-            sourceRoots.put(sourceRoot, count + 1);
-        }
-        return sourceRoots.keySet();
     }
 
     private static final Logger LOG = Logger.getLogger("main");

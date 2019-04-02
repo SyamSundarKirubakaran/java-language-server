@@ -3,7 +3,6 @@ package org.javacs;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -11,8 +10,6 @@ import javax.lang.model.type.*;
 import javax.lang.model.util.AbstractTypeVisitor8;
 
 class TemplatePrinter extends AbstractTypeVisitor8<String, Void> {
-    private final Logger LOG = Logger.getLogger("main");
-
     private Map<TypeMirror, Integer> parameters = new HashMap<>();
 
     private int parameter(TypeMirror t) {
@@ -100,7 +97,6 @@ class TemplatePrinter extends AbstractTypeVisitor8<String, Void> {
     private String printArguments(ExecutableElement e) {
         var result = new StringJoiner(", ");
         for (var p : e.getParameters()) {
-            var s = new StringBuilder();
             result.add(print(p.asType()) + " " + p.getSimpleName());
         }
         return result.toString();

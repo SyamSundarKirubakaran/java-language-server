@@ -15,7 +15,7 @@ public class ParseFile {
     private static final JavaCompiler COMPILER = ServiceLoader.load(JavaCompiler.class).iterator().next();
 
     /** Create a task that compiles a single file */
-    static JavacTask singleFileTask(JavaCompilerService parent, URI file, String contents) {
+    private static JavacTask singleFileTask(JavaCompilerService parent, URI file, String contents) {
         // TODO could eliminate the connection to parent
         parent.diags.clear();
         return (JavacTask)
