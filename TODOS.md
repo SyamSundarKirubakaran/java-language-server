@@ -11,6 +11,7 @@
 - Go-to-subclasses
 - Test coverage codelens
 - Go-to-implementation for overridden methods
+- `Thing#close()` shows 0 references for `try (thing)`
 
 ## Bugs 
 - Imports MyEnum.* unnecessarily

@@ -79,8 +79,10 @@ public class JavaCompilerService {
         return new ParseFile(this, file);
     }
 
-    public CompileFocus compileFocus(URI file, int line, int character) {
-        return new CompileFocus(this, file, line, character);
+    public CompileBatch compileFocus(URI uri, int line, int character) {
+        var contents = Pruner.prune(uri, line, character);
+        var file = new SourceFileObject(uri, contents);
+        return compileBatch(List.of(file));
     }
 
     public CompileBatch compileBatch(Collection<URI> uris) {

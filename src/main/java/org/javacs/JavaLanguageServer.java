@@ -340,7 +340,7 @@ class JavaLanguageServer extends LanguageServer {
         // TODO don't complete inside of comments
         if (!maybeCtx.isPresent()) {
             var items = new ArrayList<CompletionItem>();
-            for (var name : CompileFocus.TOP_LEVEL_KEYWORDS) {
+            for (var name : CompileBatch.TOP_LEVEL_KEYWORDS) {
                 var i = new CompletionItem();
                 i.label = name;
                 i.kind = CompletionItemKind.Keyword;
@@ -357,23 +357,25 @@ class JavaLanguageServer extends LanguageServer {
             // Do a specific type of completion
             switch (ctx.kind) {
                 case MemberSelect:
-                    cs = focus.completeMembers(false);
+                    cs = focus.completeMembers(uri, ctx.line, ctx.character, false);
                     isIncomplete = false;
                     break;
                 case MemberReference:
-                    cs = focus.completeMembers(true);
+                    cs = focus.completeMembers(uri, ctx.line, ctx.character, true);
                     isIncomplete = false;
                     break;
                 case Identifier:
-                    cs = focus.completeIdentifiers(ctx.inClass, ctx.inMethod, ctx.partialName);
-                    isIncomplete = cs.size() >= CompileFocus.MAX_COMPLETION_ITEMS;
+                    cs =
+                            focus.completeIdentifiers(
+                                    uri, ctx.line, ctx.character, ctx.inClass, ctx.inMethod, ctx.partialName);
+                    isIncomplete = cs.size() >= CompileBatch.MAX_COMPLETION_ITEMS;
                     break;
                 case Annotation:
-                    cs = focus.completeAnnotations(ctx.partialName);
-                    isIncomplete = cs.size() >= CompileFocus.MAX_COMPLETION_ITEMS;
+                    cs = focus.completeAnnotations(uri, ctx.line, ctx.character, ctx.partialName);
+                    isIncomplete = cs.size() >= CompileBatch.MAX_COMPLETION_ITEMS;
                     break;
                 case Case:
-                    cs = focus.completeCases();
+                    cs = focus.completeCases(uri, ctx.line, ctx.character);
                     isIncomplete = false;
                     break;
                 default:
@@ -747,7 +749,7 @@ class JavaLanguageServer extends LanguageServer {
         var line = position.position.line + 1;
         var column = position.position.character + 1;
         try (var focus = compiler.compileFocus(uri, line, column)) {
-            var help = focus.methodInvocation().map(this::asSignatureHelp);
+            var help = focus.methodInvocation(uri, line, column).map(this::asSignatureHelp);
             return help;
         }
     }

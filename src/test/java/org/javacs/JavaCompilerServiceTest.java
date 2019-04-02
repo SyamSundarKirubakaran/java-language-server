@@ -60,7 +60,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void element() {
         var uri = resourceUri("HelloWorld.java");
-        var found = compiler.compileFocus(uri, 3, 24).element();
+        var found = compiler.compileFocus(uri, 3, 24).element(uri, 3, 24).get();
 
         assertThat(found.getSimpleName(), hasToString(containsString("println")));
     }
@@ -68,7 +68,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void elementWithError() {
         var uri = resourceUri("CompleteMembers.java");
-        var found = compiler.compileFocus(uri, 3, 12).element();
+        var found = compiler.compileFocus(uri, 3, 12).element(uri, 3, 12);
 
         assertThat(found, notNullValue());
     }
@@ -93,7 +93,7 @@ public class JavaCompilerServiceTest {
     public void identifiers() {
         var uri = resourceUri("CompleteIdentifiers.java");
         var focus = compiler.compileFocus(uri, 13, 21);
-        var found = focus.scopeMembers("complete");
+        var found = focus.scopeMembers(uri, 13, 21, "complete");
         var names = elementNames(found);
         assertThat(names, hasItem("completeLocal"));
         assertThat(names, hasItem("completeParam"));
@@ -110,7 +110,7 @@ public class JavaCompilerServiceTest {
     public void identifiersInMiddle() {
         var uri = resourceUri("CompleteInMiddle.java");
         var focus = compiler.compileFocus(uri, 13, 21);
-        var found = focus.scopeMembers("complete");
+        var found = focus.scopeMembers(uri, 13, 21, "complete");
         var names = elementNames(found);
         assertThat(names, hasItem("completeLocal"));
         assertThat(names, hasItem("completeParam"));
@@ -128,7 +128,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteIdentifiers.java");
         var ctx = compiler.parseFile(uri).completionContext(13, 21).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeIdentifiers(ctx.inClass, ctx.inMethod, ctx.partialName);
+        var found = focus.completeIdentifiers(uri, ctx.line, ctx.character, ctx.inClass, ctx.inMethod, ctx.partialName);
         var names = completionNames(found);
         assertThat(names, hasItem("completeLocal"));
         assertThat(names, hasItem("completeParam"));
@@ -145,7 +145,7 @@ public class JavaCompilerServiceTest {
     public void members() {
         var uri = resourceUri("CompleteMembers.java");
         var focus = compiler.compileFocus(uri, 3, 14);
-        var found = focus.completeMembers(false);
+        var found = focus.completeMembers(uri, 3, 14, false);
         var names = completionNames(found);
         assertThat(names, hasItem("subMethod"));
         assertThat(names, hasItem("superMethod"));
@@ -157,7 +157,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteMembers.java");
         var ctx = compiler.parseFile(uri).completionContext(3, 15).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeMembers(false);
+        var found = focus.completeMembers(uri, ctx.line, ctx.character, false);
         var names = completionNames(found);
         assertThat(names, hasItem("subMethod"));
         assertThat(names, hasItem("superMethod"));
@@ -169,7 +169,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteExpression.java");
         var ctx = compiler.parseFile(uri).completionContext(3, 37).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeMembers(false);
+        var found = focus.completeMembers(uri, ctx.line, ctx.character, false);
         var names = completionNames(found);
         assertThat(names, hasItem("instanceMethod"));
         assertThat(names, not(hasItem("create")));
@@ -181,7 +181,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteClass.java");
         var ctx = compiler.parseFile(uri).completionContext(3, 23).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeMembers(false);
+        var found = focus.completeMembers(uri, ctx.line, ctx.character, false);
         var names = completionNames(found);
         assertThat(names, hasItems("staticMethod", "staticField"));
         assertThat(names, hasItems("class"));
@@ -194,7 +194,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteImports.java");
         var ctx = compiler.parseFile(uri).completionContext(1, 18).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeMembers(false);
+        var found = focus.completeMembers(uri, ctx.line, ctx.character, false);
         var names = completionNames(found);
         assertThat(names, hasItem("List"));
         assertThat(names, hasItem("concurrent"));
@@ -203,7 +203,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void overloads() {
         var uri = resourceUri("Overloads.java");
-        var found = compiler.compileFocus(uri, 3, 15).methodInvocation().get();
+        var found = compiler.compileFocus(uri, 3, 15).methodInvocation(uri, 3, 15).get();
         var strings = found.overloads.stream().map(Object::toString).collect(Collectors.toList());
 
         assertThat(strings, hasItem(containsString("print(int)")));
@@ -255,7 +255,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void localDoc() {
         var uri = resourceUri("LocalMethodDoc.java");
-        var invocation = compiler.compileFocus(uri, 3, 21).methodInvocation().get();
+        var invocation = compiler.compileFocus(uri, 3, 21).methodInvocation(uri, 3, 21).get();
         var method = invocation.activeMethod.get();
         var ptr = new Ptr(method);
         var file = compiler.docs().find(ptr).get();
@@ -274,7 +274,7 @@ public class JavaCompilerServiceTest {
 
     @Test
     public void matchesPartialName() {
-        assertTrue(CompileFocus.matchesPartialName("foobar", "foo"));
-        assertFalse(CompileFocus.matchesPartialName("foo", "foobar"));
+        assertTrue(CompileBatch.matchesPartialName("foobar", "foo"));
+        assertFalse(CompileBatch.matchesPartialName("foo", "foobar"));
     }
 }
