@@ -145,7 +145,7 @@
 						},
 						{
 							"match": "\\w+",
-							"name": "constant.numeric markup.italic"
+							"name": "variable.other.enum.constant"
 						},
 						{
 							"begin": "\\(",
@@ -892,10 +892,6 @@
 		},
 		"constants": {
 			"patterns": [
-				{
-					"match": "\\b[A-Z0-9_]+\\b",
-					"name": "constant.numeric markup.italic"
-				},
 				{
 					"match": "\\b(null|true|false)\\b",
 					"name": "constant.numeric"
