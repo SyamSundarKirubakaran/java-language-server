@@ -616,20 +616,18 @@ class JavaLanguageServer extends LanguageServer {
         return Optional.of(md);
     }
 
-    private CompileBatch activeFileCache;
-    private URI activeFileCacheFile = URI.create("file:///NONE");
-    private int activeFileCacheVersion = -1;
+    private CompileBatch cacheCompile;
+    private URI cacheCompileFile = URI.create("file:///NONE");
+    private int cacheCompileVersion = -1;
 
     // TODO take only URI and invalidate based on version
     private void updateActiveFile(URI uri) {
-        if (activeFileCache == null
-                || !activeFileCacheFile.equals(uri)
-                || activeFileCacheVersion != FileStore.version(uri)) {
+        if (cacheCompile == null || !cacheCompileFile.equals(uri) || cacheCompileVersion != FileStore.version(uri)) {
             LOG.info("Recompile active file...");
-            if (activeFileCache != null) activeFileCache.close();
-            activeFileCache = compiler.compileFile(uri);
-            activeFileCacheFile = uri;
-            activeFileCacheVersion = FileStore.version(uri);
+            if (cacheCompile != null) cacheCompile.close();
+            cacheCompile = compiler.compileFile(uri);
+            cacheCompileFile = uri;
+            cacheCompileVersion = FileStore.version(uri);
         }
     }
 
@@ -643,7 +641,7 @@ class JavaLanguageServer extends LanguageServer {
         // Find element undeer cursor
         var line = position.position.line + 1;
         var column = position.position.character + 1;
-        var el = activeFileCache.element(uri, line, column);
+        var el = cacheCompile.element(uri, line, column);
         if (!el.isPresent()) return Optional.empty();
 
         var result = new ArrayList<MarkedString>();
@@ -764,7 +762,7 @@ class JavaLanguageServer extends LanguageServer {
         // Compile from-file and identify element under cursor
         LOG.info(String.format("Go-to-def at %s:%d...", fromUri, fromLine));
         updateActiveFile(fromUri);
-        var toEl = activeFileCache.element(fromUri, fromLine, fromColumn);
+        var toEl = cacheCompile.element(fromUri, fromLine, fromColumn);
         if (!toEl.isPresent()) {
             LOG.info(String.format("...no element at cursor"));
             return Optional.empty();
@@ -805,7 +803,7 @@ class JavaLanguageServer extends LanguageServer {
         // Compile from-file and identify element under cursor
         LOG.warning(String.format("Looking for references to %s(%d,%d)...", toUri.getPath(), toLine, toColumn));
         updateActiveFile(toUri);
-        var toEl = activeFileCache.element(toUri, toLine, toColumn);
+        var toEl = cacheCompile.element(toUri, toLine, toColumn);
         if (!toEl.isPresent()) {
             LOG.warning("...no element under cursor");
             return Optional.empty();
@@ -1057,7 +1055,7 @@ class JavaLanguageServer extends LanguageServer {
         updateActiveFile(toUri);
 
         // Find the element we want to count references to
-        var toEl = activeFileCache.element(toUri, toLine, toColumn);
+        var toEl = cacheCompile.element(toUri, toLine, toColumn);
         if (!toEl.isPresent()) {
             LOG.warning("...no element at code lens");
             return -1;
@@ -1065,7 +1063,7 @@ class JavaLanguageServer extends LanguageServer {
         var toPtr = new Ptr(toEl.get());
 
         // Find the signature of the target file
-        var declarations = activeFileCache.declarations(toUri);
+        var declarations = cacheCompile.declarations(toUri);
         var signature = new HashSet<Ptr>();
         for (var el : declarations) {
             signature.add(new Ptr(el));
@@ -1096,7 +1094,7 @@ class JavaLanguageServer extends LanguageServer {
         }
 
         // Always update active file
-        var activeIndex = activeFileCache.index(toUri, declarations);
+        var activeIndex = cacheCompile.index(toUri, declarations);
         var count = activeIndex.count(toPtr);
 
         // Count up references out of index
@@ -1182,14 +1180,14 @@ class JavaLanguageServer extends LanguageServer {
     private List<TextEdit> fixImports() {
         // TODO if imports already match fixed-imports, return empty list
         // TODO preserve comments and other details of existing imports
-        var imports = activeFileCache.fixImports(activeFileCacheFile);
-        var pos = activeFileCache.sourcePositions();
-        var lines = activeFileCache.lineMap(activeFileCacheFile);
+        var imports = cacheCompile.fixImports(cacheCompileFile);
+        var pos = cacheCompile.sourcePositions();
+        var lines = cacheCompile.lineMap(cacheCompileFile);
         var edits = new ArrayList<TextEdit>();
         // Delete all existing imports
-        for (var i : activeFileCache.imports(activeFileCacheFile)) {
+        for (var i : cacheCompile.imports(cacheCompileFile)) {
             if (!i.isStatic()) {
-                var offset = pos.getStartPosition(activeFileCache.root(activeFileCacheFile), i);
+                var offset = pos.getStartPosition(cacheCompile.root(cacheCompileFile), i);
                 var line = (int) lines.getLineNumber(offset) - 1;
                 var delete = new TextEdit(new Range(new Position(line, 0), new Position(line + 1, 0)), "");
                 edits.add(delete);
@@ -1200,18 +1198,17 @@ class JavaLanguageServer extends LanguageServer {
         long insertLine = -1;
         var insertText = new StringBuilder();
         // If there are imports, use the start of the first import as the insert position
-        for (var i : activeFileCache.imports(activeFileCacheFile)) {
+        for (var i : cacheCompile.imports(cacheCompileFile)) {
             if (!i.isStatic() && insertLine == -1) {
-                long offset = pos.getStartPosition(activeFileCache.root(activeFileCacheFile), i);
+                long offset = pos.getStartPosition(cacheCompile.root(cacheCompileFile), i);
                 insertLine = lines.getLineNumber(offset) - 1;
             }
         }
         // If there are no imports, insert after the package declaration
-        if (insertLine == -1 && activeFileCache.root(activeFileCacheFile).getPackageName() != null) {
+        if (insertLine == -1 && cacheCompile.root(cacheCompileFile).getPackageName() != null) {
             long offset =
                     pos.getEndPosition(
-                            activeFileCache.root(activeFileCacheFile),
-                            activeFileCache.root(activeFileCacheFile).getPackageName());
+                            cacheCompile.root(cacheCompileFile), cacheCompile.root(cacheCompileFile).getPackageName());
             insertLine = lines.getLineNumber(offset);
             insertText.append("\n");
         }
@@ -1232,9 +1229,9 @@ class JavaLanguageServer extends LanguageServer {
 
     private List<TextEdit> addOverrides() {
         var edits = new ArrayList<TextEdit>();
-        var methods = activeFileCache.needsOverrideAnnotation(activeFileCacheFile);
-        var pos = activeFileCache.sourcePositions();
-        var lines = activeFileCache.lineMap(activeFileCacheFile);
+        var methods = cacheCompile.needsOverrideAnnotation(cacheCompileFile);
+        var pos = cacheCompile.sourcePositions();
+        var lines = cacheCompile.lineMap(cacheCompileFile);
         for (var t : methods) {
             var methodStart = pos.getStartPosition(t.getCompilationUnit(), t.getLeaf());
             var insertLine = lines.getLineNumber(methodStart);

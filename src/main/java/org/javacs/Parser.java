@@ -136,21 +136,6 @@ class Parser {
         }
     }
 
-    static boolean containsText(Path java, String query) {
-        var search = new StringSearch(query);
-        try (var channel = FileChannel.open(java)) {
-            // Read up to 1 MB of data from file
-            var limit = Math.min((int) channel.size(), SEARCH_BUFFER.capacity());
-            SEARCH_BUFFER.position(0);
-            SEARCH_BUFFER.limit(limit);
-            channel.read(SEARCH_BUFFER);
-            SEARCH_BUFFER.position(0);
-            return search.next(SEARCH_BUFFER) != -1;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     static boolean containsWord(Path java, String query) {
         var search = new StringSearch(query);
         try (var channel = FileChannel.open(java)) {
@@ -161,21 +146,6 @@ class Parser {
             channel.read(SEARCH_BUFFER);
             SEARCH_BUFFER.position(0);
             return search.nextWord(SEARCH_BUFFER) != -1;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    static boolean containsPattern(Path java, Pattern pattern) {
-        try (var channel = FileChannel.open(java)) {
-            // Read up to 1 MB of data from file
-            var limit = Math.min((int) channel.size(), SEARCH_BUFFER.capacity());
-            SEARCH_BUFFER.position(0);
-            SEARCH_BUFFER.limit(limit);
-            channel.read(SEARCH_BUFFER);
-            SEARCH_BUFFER.position(0);
-            var chars = Charset.forName("UTF-8").decode(SEARCH_BUFFER);
-            return pattern.matcher(chars).find();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -273,40 +243,6 @@ class Parser {
         return "";
     }
 
-    static Set<String> importsPackages(Path file) {
-        var importStatic = Pattern.compile("^import +static +(.+);");
-        var importAny = Pattern.compile("^import +(.+);");
-        var startOfClass = Pattern.compile("^[\\w ]*class +\\w+");
-        var pkgs = new HashSet<String>();
-        try (var lines = FileStore.lines(file)) {
-            for (var line = lines.readLine(); line != null; line = lines.readLine()) {
-                if (startOfClass.matcher(line).find()) break;
-                var matchImportStatic = importStatic.matcher(line);
-                if (matchImportStatic.matches()) {
-                    var id = matchImportStatic.group(1);
-                    var pkg = new StringJoiner(".");
-                    for (var part : id.split("\\.")) {
-                        var firstChar = part.charAt(0);
-                        if (Character.isUpperCase(firstChar) || firstChar == '*') break;
-                        pkg.add(part);
-                    }
-                    pkgs.add(pkg.toString());
-                    continue;
-                }
-                var matchImportAny = importAny.matcher(line);
-                if (matchImportAny.matches()) {
-                    var id = matchImportAny.group(1);
-                    var lastDot = id.lastIndexOf(".");
-                    if (lastDot != -1) id = id.substring(0, lastDot);
-                    pkgs.add(id);
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return pkgs;
-    }
-
     /** Find all already-imported symbols in all .java files in workspace */
     static ExistingImports existingImports(Collection<Path> allJavaFiles) {
         var classes = new HashSet<String>();
@@ -380,7 +316,6 @@ class Parser {
         return leaf.toString();
     }
 
-    // TODO does this really belong in Parser?
     private static Optional<String> resolveSymbol(String unresolved, ExistingImports imports, Set<String> classPath) {
         // Try to disambiguate by looking for exact matches
         // For example, Foo is exactly matched by `import com.bar.Foo`
@@ -433,7 +368,6 @@ class Parser {
         return candidates.stream().filter(c -> c.startsWith("java.")).sorted(order).findFirst();
     }
 
-    // TODO does this really belong in Parser?
     static Map<String, String> resolveSymbols(
             Set<String> unresolvedSymbols, ExistingImports imports, Set<String> classPath) {
         var result = new HashMap<String, String>();
