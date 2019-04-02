@@ -85,21 +85,21 @@ public class JavaCompilerService {
         return compileBatch(List.of(file));
     }
 
-    public CompileBatch compileBatch(Collection<URI> uris) {
-        return compileBatch(uris, ReportProgress.EMPTY);
+    public CompileBatch compileFile(URI uri) {
+        return compileUris(Collections.singleton(uri));
     }
 
-    public CompileBatch compileBatch(Collection<URI> uris, ReportProgress progress) {
+    public CompileBatch compileUris(Collection<URI> uris) {
         var files = new ArrayList<File>();
         for (var p : uris) files.add(new File(p));
         var sources = fileManager.getJavaFileObjectsFromFiles(files);
         var list = new ArrayList<JavaFileObject>();
         for (var s : sources) list.add(s);
-        return new CompileBatch(this, list, progress);
+        return new CompileBatch(this, list);
     }
 
-    public CompileBatch compileBatch(List<? extends JavaFileObject> sources) {
-        return new CompileBatch(this, sources, ReportProgress.EMPTY);
+    public CompileBatch compileBatch(Collection<? extends JavaFileObject> sources) {
+        return new CompileBatch(this, sources);
     }
 
     public List<Diagnostic<? extends JavaFileObject>> reportErrors(Collection<URI> uris) {

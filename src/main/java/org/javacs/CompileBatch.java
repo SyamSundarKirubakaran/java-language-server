@@ -24,16 +24,14 @@ public class CompileBatch implements AutoCloseable {
     public static final int MAX_COMPLETION_ITEMS = 50;
 
     private final JavaCompilerService parent;
-    private final ReportProgress progress;
     private final TaskPool.Borrow borrow;
     private final Trees trees;
     private final Elements elements;
     private final Types types;
     private final List<CompilationUnitTree> roots;
 
-    CompileBatch(JavaCompilerService parent, Collection<? extends JavaFileObject> files, ReportProgress progress) {
+    CompileBatch(JavaCompilerService parent, Collection<? extends JavaFileObject> files) {
         this.parent = parent;
-        this.progress = progress;
         this.borrow = batchTask(parent, files);
         this.trees = Trees.instance(borrow.task);
         this.elements = borrow.task.getElements();
@@ -42,34 +40,6 @@ public class CompileBatch implements AutoCloseable {
         // Print timing information for optimization
         var profiler = new Profiler();
         borrow.task.addTaskListener(profiler);
-        // Show progress message through the UI
-        class CountFiles implements TaskListener {
-            Set<URI> parse = new HashSet<>(), enter = new HashSet<>(), analyze = new HashSet<>();
-
-            void inc(String message) {
-                var n = parse.size() + enter.size() + analyze.size();
-                var total = files.size() * 3;
-                progress.progress(message, n, total);
-            }
-
-            @Override
-            public void started(TaskEvent e) {
-                var uri = e.getSourceFile().toUri();
-                switch (e.getKind()) {
-                    case PARSE:
-                        if (parse.add(uri)) inc("Parse sources");
-                        break;
-                    case ENTER:
-                        if (enter.add(uri)) inc("Enter symbols");
-                        break;
-                    case ANALYZE:
-                        var name = Parser.fileName(uri);
-                        if (analyze.add(uri)) inc("Analyze " + name);
-                        break;
-                }
-            }
-        }
-        borrow.task.addTaskListener(new CountFiles());
         // Compile all roots
         try {
             for (var t : borrow.task.parse()) roots.add(t);
@@ -87,7 +57,7 @@ public class CompileBatch implements AutoCloseable {
         borrow.close();
     }
 
-    static TaskPool.Borrow batchTask(JavaCompilerService parent, Collection<? extends JavaFileObject> sources) {
+    private static TaskPool.Borrow batchTask(JavaCompilerService parent, Collection<? extends JavaFileObject> sources) {
         parent.diags.clear();
         return parent.compiler.getTask(
                 null,

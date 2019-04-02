@@ -627,7 +627,7 @@ class JavaLanguageServer extends LanguageServer {
                 || activeFileCacheVersion != FileStore.version(uri)) {
             LOG.info("Recompile active file...");
             if (activeFileCache != null) activeFileCache.close();
-            activeFileCache = compiler.compileBatch(Collections.singleton(uri));
+            activeFileCache = compiler.compileFile(uri);
             activeFileCacheFile = uri;
             activeFileCacheVersion = FileStore.version(uri);
         }
@@ -1141,7 +1141,7 @@ class JavaLanguageServer extends LanguageServer {
         if (!outOfDate.isEmpty()) {
             // Compile all files that need to be updated in a batch
             outOfDate.add(toUri);
-            try (var batch = compiler.compileBatch(outOfDate)) {
+            try (var batch = compiler.compileUris(outOfDate)) {
                 // Find all declarations in toFile
                 var toEls = batch.declarations(toUri);
 
