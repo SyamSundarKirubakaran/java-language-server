@@ -1,5 +1,9 @@
 # Todo
 
+## Highlight
+- `(Cast) thing`
+- `Foo.class` 
+
 ## Autocomplete
 - Autocomplete POJO constructor This(T f, U g) { this.f = f; ... }
 
