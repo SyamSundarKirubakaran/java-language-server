@@ -46,9 +46,6 @@
 			"contentName": "storage.modifier.import.java",
 			"patterns": [
 				{
-					"include": "#type-name"
-				},
-				{
 					"include": "#comments"
 				}
 			]
@@ -177,7 +174,7 @@
 							"name": "meta.enum.body.java",
 							"beginCaptures": {
 								"0": {
-									"name": "keyword.other.begin-enum-methods"
+									"name": "keyword.other.semi"
 								}
 							},
 							"patterns": [
@@ -653,6 +650,10 @@
 				},
 				{
 					"include": "#expr"
+				},
+				{
+					"match": ";",
+					"name": "keyword.other.semi"
 				}
 			]
 		},
