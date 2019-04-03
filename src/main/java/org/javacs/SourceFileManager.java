@@ -49,6 +49,7 @@ class SourceFileManager extends ForwardingJavaFileManager<StandardJavaFileManage
     }
 
     private JavaFileObject asJavaFileObject(Path file) {
+        // TODO erase method bodies of files that are not open
         return new SourceFileObject(file);
     }
 
@@ -68,11 +69,6 @@ class SourceFileManager extends ForwardingJavaFileManager<StandardJavaFileManage
     private String removeExtension(String fileName) {
         var lastDot = fileName.lastIndexOf(".");
         return (lastDot == -1 ? fileName : fileName.substring(0, lastDot));
-    }
-
-    @Override
-    public boolean isSameFile(FileObject a, FileObject b) {
-        return a.equals(b);
     }
 
     @Override
