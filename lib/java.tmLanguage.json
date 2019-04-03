@@ -257,7 +257,7 @@
 					"name": "variable.other.constructor.java"
 				},
 				{
-					"begin": "\\b([A-Z]\\w*|byte|short|int|long|char|float|double|boolean|void)\\b",
+					"begin": "\\b((\\w+\\.)*[A-Z]\\w*|byte|short|int|long|char|float|double|boolean|void)\\b",
 					"end": "\\b\\w+\\b",
 					"name": "meta.declaration.java",
 					"beginCaptures": {
@@ -372,6 +372,10 @@
 							"include": "#code"
 						}
 					]
+				},
+				{
+					"match": ";",
+					"name": "keyword.other.semi"
 				}
 			]
 		},
@@ -435,7 +439,7 @@
 		"code": {
 			"patterns": [
 				{
-					"begin": "^ *([A-Z]\\w*|byte|short|int|long|char|float|double|boolean) +(?=\\w)",
+					"begin": "^ *((\\w+\\.)*[A-Z]\\w*|byte|short|int|long|char|float|double|boolean) +(?=\\w)",
 					"end": "(?=;)|$",
 					"name": "meta.variable.simple.java",
 					"beginCaptures": {
@@ -450,7 +454,7 @@
 					]
 				},
 				{
-					"begin": "^ *([A-Z]\\w*|byte|short|int|long|char|float|double|boolean)(?=\\[\\])",
+					"begin": "^ *((\\w+\\.)*[A-Z]\\w*|byte|short|int|long|char|float|double|boolean)(?=\\[\\])",
 					"end": "(?=;)|$",
 					"name": "meta.variable.array.java",
 					"beginCaptures": {
@@ -649,11 +653,11 @@
 					]
 				},
 				{
-					"include": "#expr"
-				},
-				{
 					"match": ";",
 					"name": "keyword.other.semi"
+				},
+				{
+					"include": "#expr"
 				}
 			]
 		},
@@ -722,7 +726,7 @@
 		"simple-variable-declaration": {
 			"patterns": [
 				{
-					"begin": "\\b([A-Z]\\w*|byte|short|int|long|char|float|double|boolean|var) +(?=\\w)",
+					"begin": "\\b((\\w+\\.)*[A-Z]\\w*|byte|short|int|long|char|float|double|boolean|var) +(?=\\w)",
 					"end": "\\b\\w+\\b",
 					"name": "meta.declaration.java",
 					"beginCaptures": {
@@ -752,7 +756,7 @@
 					]
 				},
 				{
-					"begin": "\\b([A-Z]\\w*|byte|short|int|long|char|float|double|boolean)(?=\\[\\])",
+					"begin": "\\b((\\w+\\.)*[A-Z]\\w*|byte|short|int|long|char|float|double|boolean)(?=\\[\\])",
 					"end": "\\b\\w+\\b",
 					"name": "meta.declaration.java",
 					"beginCaptures": {
